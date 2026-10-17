@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>¿Cuánto me conoces? · Top 5</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#111323;color:#f7f5ff;font:17px system-ui,sans-serif;min-height:100vh;padding:32px 18px}main{max-width:620px;margin:auto}small{color:#bdacff;text-transform:uppercase;letter-spacing:3px}h1{font-size:clamp(32px,7vw,48px);line-height:1.1}p{color:#c5c6d9;line-height:1.6}section{background:#1c2036;border:1px solid #363b57;padding:24px;border-radius:24px;margin:24px 0}label{display:block;margin:14px 0}input{display:block;width:100%;padding:13px;border-radius:10px;border:1px solid #555c7f;background:#111323;color:white;font:inherit;margin-top:7px}button{cursor:pointer;border:0;border-radius:12px;background:#c4b1ff;color:#191329;font:700 16px system-ui;padding:14px 18px}button:focus-visible,input:focus-visible{outline:3px solid #5fe6d2;outline-offset:3px}button:disabled{opacity:.3;cursor:default}.secondary{background:#343b58;color:white}ol{padding:0;list-style:none;display:grid;gap:12px}.card{display:flex;align-items:center;gap:14px;background:#272d48;border-radius:14px;padding:14px}.rank{background:#c4b1ff;color:#191329;display:grid;place-items:center;border-radius:50%;min-width:32px;height:32px;font-weight:800}.name{flex:1;overflow-wrap:anywhere}.moves{display:flex;gap:5px}.moves button{padding:10px 13px;background:#424b70;color:white}.actions{display:flex;flex-wrap:wrap;gap:10px}#result{min-height:34px;font-weight:bold;color:#7de4cf}footer{color:#9299b6;font-size:13px;line-height:1.6}[hidden]{display:none!important}
+</style>
+<main><small>El reto del cumpleañero</small><h1>¿Cuánto me conoces?</h1><p id="intro">Prepara tu ranking secreto. El número 1 será tu favorito y el 5, el que menos prefieres de esta lista.</p>
+<section id="setup"><h2>Prepara el Top 5</h2><label>Título del reto<input id="titleInput" value="Ordena mis cosas favoritas" maxlength="100"></label><div id="fields"></div><p>Escribe cinco opciones diferentes en su orden correcto. Después descarga el juego y comparte ese archivo con los jugadores.</p><button id="download">Descargar juego para jugadores</button><p id="error" role="alert"></p></section>
+<section id="game" hidden><h2 id="gameTitle"></h2><p>Usa ↑ y ↓ para ordenar. <strong>1 = mi favorito.</strong> Tienes un máximo de <strong>3 intentos</strong> para acertar las cinco posiciones.</p><ol id="list"></ol><div class="actions"><button id="check">Comprobar orden</button></div><p id="result" role="status" aria-live="polite"></p><p id="attempts"></p></section>
+<footer>Funciona sin conexión. Cada dispositivo juega por separado. El bloqueo se conserva al recargar si el navegador permite guardar datos locales. Borrar esos datos o usar otro navegador permite volver a jugar. El orden está incluido en el código: úsalo como juego casual, sin protección contra quien inspeccione el archivo.</footer></main>
+<script id="config" type="application/json">null</script>
+<script>
+const $=id=>document.getElementById(id);
+const config=JSON.parse($('config').textContent);
+let order=[],attempts=0,solved=false;
+const MAX_ATTEMPTS=3;
+const storageKey=config?'top5-v2-'+JSON.stringify(config):null;
+function finished(){return solved||attempts>=MAX_ATTEMPTS;}
+function save(){try{localStorage.setItem(storageKey,JSON.stringify({order,attempts,solved}));}catch(e){}}
+function endSound(){
+ try{
+  const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;
+  const ctx=new Audio();ctx.resume().then(()=>{
+   [330,247,165,110].forEach((frequency,i)=>{const osc=ctx.createOscillator(),gain=ctx.createGain();osc.type='sawtooth';osc.frequency.value=frequency;gain.gain.setValueAtTime(0.0001,ctx.currentTime+i*.22);gain.gain.exponentialRampToValueAtTime(.13,ctx.currentTime+i*.22+.02);gain.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+i*.22+.35);osc.connect(gain);gain.connect(ctx.destination);osc.start(ctx.currentTime+i*.22);osc.stop(ctx.currentTime+i*.22+.36);});
+   setTimeout(()=>ctx.close(),1500);
+  }).catch(()=>{});
+ }catch(e){}
+}
+function status(){
+ $('attempts').textContent='Intentos: '+attempts+' / '+MAX_ATTEMPTS;
+ $('check').disabled=finished();
+ $('result').textContent=solved?'¡Correcto! Acertaste mi Top 5. 🎉':attempts>=MAX_ATTEMPTS?'⛔ Agotaste tus 3 intentos. Ya no puedes jugar.':attempts?'Ese no es mi orden. Te quedan '+(MAX_ATTEMPTS-attempts)+' intento(s).':'';
+ $('result').style.color=attempts>=MAX_ATTEMPTS&&!solved?'#ff9fae':'#7de4cf';
+}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function render(){
+ $('list').replaceChildren();
+ order.forEach((id,index)=>{
+  const li=document.createElement('li');li.className='card';
+  const rank=document.createElement('span');rank.className='rank';rank.textContent=index+1;
+  const name=document.createElement('span');name.className='name';name.textContent=config.items[id];
+  const moves=document.createElement('div');moves.className='moves';
+  [-1,1].forEach(delta=>{const b=document.createElement('button');b.textContent=delta===-1?'↑':'↓';b.setAttribute('aria-label',(delta===-1?'Subir ':'Bajar ')+config.items[id]);b.disabled=finished()||index+delta<0||index+delta>=5;b.onclick=()=>{if(finished())return;[order[index],order[index+delta]]=[order[index+delta],order[index]];save();render();const target=$('list').children[index+delta].querySelectorAll('button')[delta===-1?0:1];if(!target.disabled)target.focus();};moves.append(b);});
+  li.append(rank,name,moves);$('list').append(li);
+ });
+}
+function start(){
+ attempts=0;solved=false;order=shuffle([0,1,2,3,4]);
+ if(order.every((v,i)=>v===i))[order[0],order[1]]=[order[1],order[0]];
+ try{const saved=JSON.parse(localStorage.getItem(storageKey));
+ if(saved&&Array.isArray(saved.order)&&saved.order.length===5&&new Set(saved.order).size===5&&saved.order.every(v=>Number.isInteger(v)&&v>=0&&v<5)&&Number.isInteger(saved.attempts)&&saved.attempts>=0&&saved.attempts<=3){order=saved.order;attempts=saved.attempts;solved=attempts>0&&order.every((v,i)=>v===i);}
+ }catch(e){}
+ status();render();save();
+}
+if(config){if($('setup')) $('setup').hidden=true;$('game').hidden=false;$('intro').textContent='Cinco opciones. Un solo orden correcto. ¿Podrás adivinarlo?';$('gameTitle').textContent=config.title;start();}
+else {for(let i=0;i<5;i++){const label=document.createElement('label');label.textContent=(i+1)+'. '+(i===0?'Tu favorito':'Siguiente preferencia');const input=document.createElement('input');input.id='item'+i;input.maxLength=80;input.placeholder=['Ej.: Pizza','Ej.: Hamburguesa','Ej.: Sushi','Ej.: Tacos','Ej.: Pasta'][i];label.append(input);$('fields').append(label);}}
+$('check').onclick=()=>{
+ if(finished())return;
+ attempts++;solved=order.every((v,i)=>v===i);save();status();render();
+ if(!solved&&attempts>=MAX_ATTEMPTS)endSound();
+};
+if($('download')) $('download').onclick=()=>{
+ const items=Array.from({length:5},(_,i)=>$('item'+i).value.trim());
+ if(items.some(x=>!x)||new Set(items.map(x=>x.toLocaleLowerCase())).size!==5){$('error').textContent='Completa las cinco opciones sin repetir ninguna.';return;}
+ $('error').textContent='';
+ const data={gameId:Date.now().toString(36),title:$('titleInput').value.trim()||'Ordena mis cosas favoritas',items};
+ const clone=document.documentElement.cloneNode(true);
+ clone.querySelector('#config').textContent=JSON.stringify(data).replace(/</g,'\\u003c');
+ clone.querySelector('#setup').remove();
+ const url=URL.createObjectURL(new Blob(['<!doctype html>\n'+clone.outerHTML],{type:'text/html;charset=utf-8'}));
+ const link=document.createElement('a');link.href=url;link.download='reto_favoritos.html';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
+</script></html>
